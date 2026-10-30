@@ -1082,7 +1082,7 @@
         </section>
       </div>
       <p id="cloudMessage" class="cloud-status" role="status" aria-live="polite">Cloud requires an internet connection. Local diary features are always available.</p>
-      <p class="cloud-warning"><strong>v2.5 opt-in sync beta:</strong> Automatic syncing is OFF unless you enable it below. Back up JSON before switching it on. Existing cloud and local changes are compared by revision; simultaneous edits are held for manual review, not silently overwritten. Imports and new cloud uploads require internet.</p>
+      <p class="cloud-warning"><strong>v2.5.1 sync-fix beta:</strong> Automatic syncing is OFF unless you enable it below. Back up JSON before switching it on. Existing cloud and local changes are compared by revision; simultaneous edits are held for manual review, not silently overwritten. Imports and new cloud uploads require internet.</p>
     </section>
 
     <section class="card install-settings" aria-labelledby="installHeading">
@@ -2885,7 +2885,19 @@
         function dreamSyncActive(){return !!(dreamSyncState.enabled && dreamCloudUser && dreamSyncState.userId===dreamCloudUser.id && dreamCloudClient && !storageLoadFailed);}
         function saveDreamSyncState(){localStorage.setItem(DREAM_SYNC_STATE_KEY,JSON.stringify(dreamSyncState));}
         function dreamSyncCopy(item){const v={...item};delete v.id;delete v.cloudId;return v;}
-        function dreamSyncString(value){return JSON.stringify(value);}
+        function dreamSyncString(value){
+            // JSONB may reorder object keys. Compare content, not key insertion order.
+            const canonical = v => {
+                if (Array.isArray(v)) return v.map(canonical);
+                if (v && typeof v === 'object') {
+                    return Object.fromEntries(
+                        Object.keys(v).sort().map(key => [key, canonical(v[key])])
+                    );
+                }
+                return v;
+            };
+            return JSON.stringify(canonical(value));
+        }
         function dreamSyncLocalByCloudId(id){for(const category of DREAM_SYNC_CATEGORIES){const item=db[category].find(item=>item.cloudId===id);if(item)return {category,item};}return null;}
         function dreamSyncNewId(){return Math.max(Date.now(),...DREAM_SYNC_CATEGORIES.flatMap(c=>db[c].map(x=>Number(x.id)||0)))+1;}
         function dreamSyncClean(row){
